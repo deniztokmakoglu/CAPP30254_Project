@@ -100,30 +100,30 @@ def booltonum(df, column):
 
 #Build Classifiers
 
-def linreg(df, features, outcome, size, random_ = random.randint(0,100)):
-    for feature in features:
-        assert df[feature].dtype == 'int64'
-    assert df[outcome].dtype == 'int64'
+def linreg(train_n, test_n, train, test, features, outcome, size = None, random_ = random.randint(0,100)):
+    #for feature in features:
+    #    assert df[feature].dtype == 'int64'
+    #assert df[outcome].dtype == 'int64'
     start_time = time.time()
-    train, test = train_test(df, size, random_ = random_)
+    #train, test = train_test(df, size, random_ = random_)
     lin_reg = LinearRegression()
-    train_n = train.copy()
-    test_n = test.copy()
-    for feature in features:
-        train_n_int, test_n_int = normalize(df, feature, train, test)
-        train_n[feature] = train_n_int[feature]
-        test_n[feature] = test_n_int[feature]
+    #train_n = train.copy()
+    #test_n = test.copy()
+    #for feature in features:
+    #    train_n_int, test_n_int = normalize(df, feature, train, test)
+    #    train_n[feature] = train_n_int[feature]
+    #    test_n[feature] = test_n_int[feature]
 
-    x = train_n[features]
-    lin_reg.fit(x, train_n[outcome])
-    best_line = lin_reg.predict(test_n[[features]])
+    x = np.array(train_n[features]).reshape(-1, 1)
+    lin_reg.fit(x, train[outcome])
+    best_line = lin_reg.predict(np.array(test_n[[features]]).reshape(-1, 1))
 
     print('This ML model took', time.time() - start_time, 'to train')
     print('The MAE is', metrics.mean_absolute_error(test[outcome], best_line))
     print('The MSE is', metrics.mean_squared_error(test[outcome], best_line))
     print('The R^2 value is', metrics.r2_score(test[outcome], best_line))
 
-    return lin_reg
+    return lin_reg, best_line
 
 def grid_search(train_n, test_n, models, grid, outcome):
     # --- Grid Search Pseudocode --- # 
