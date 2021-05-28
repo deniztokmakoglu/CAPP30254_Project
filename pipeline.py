@@ -22,11 +22,15 @@ import seaborn as sns
 def read(csv):
     return pd.read_csv(csv)
 
-def read_all():
-    claims_datas = [f"claims_{i}" for i in range(1, 6)]
-    claims = pd.read_csv("Data/claims1.csv")
-    for i in range(2, 6):
-        claims = claims.append(pd.read_csv(f"Data/claims{i}.csv"))
+def read_all(categorical = False):
+    if categorical:
+        claims = pd.read_csv("Data/claims1_categorical.csv")
+        for i in range(2, 6):
+            claims = claims.append(pd.read_csv(f"Data/claims{i}_categorical.csv"))
+    else:
+        claims = pd.read_csv("Data/claims1.csv")
+        for i in range(2, 6):
+            claims = claims.append(pd.read_csv(f"Data/claims{i}.csv"))
     return claims
 
 
@@ -89,6 +93,19 @@ def normalize(train, test, columns):
         test_n[column] = test[column].apply(lambda x: (x - df_mean)/df_std)
 
     return train_n, test_n
+
+def detect_outlier(data, outliers):
+    
+    threshold=3
+    mean_1 = np.mean(data)
+    std_1 =np.std(data)
+    
+    
+    for y in data:
+        z_score= (y - mean_1)/std_1 
+        if np.abs(z_score) > threshold:
+            outliers.append(y)
+    return outliers
 
 
 #Generate Features
