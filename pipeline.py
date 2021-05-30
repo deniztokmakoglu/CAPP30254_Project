@@ -186,13 +186,15 @@ def grid_search(train_n, test_n, models, grid, outcome):
     print("Time Elapsed:", stop - start)
 
     results_df = pd.DataFrame(results).T.reset_index()
-    results_df.columns = ['Model', 'Parameters', 'Accuracy Score', 'R2 Score']
+    results_df.columns = ['Model', 'Parameters', 'Accuracy Score', 'Precision Score',
+    'Recall Score', 'F1 Score']
 
     return results_df
 
 
 #Evaluate Classifiers
 
-def evaluate(actual, predictions): #run precision, accuracy, f1, r2, rss from sklearn
+def evaluate(actual, predictions): #run accuracy, precision, recall, f1
 
-    return (accuracy_score(actual, predictions), metrics.r2_score(actual, predictions))
+    return (accuracy_score(actual, predictions), metrics.precision_score(actual, predictions), 
+    metrics.recall_score(actual, predictions), metrics.f1_score(actual, predictions))
