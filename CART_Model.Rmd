@@ -1,0 +1,169 @@
+---
+title: "Decision Trees and CART"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caTools)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(ROCR)
+library(psych) 
+```
+
+
+
+```{r}
+setwd("~/Downloads/Machine Learning Assignments/Project - Kelly, Deniz, Jacob")
+claims = read.csv("claimsFull.csv")
+
+# Note: The last column appears to be processed.
+# Will remove this column because otherwise it dominates the CART model
+claims$monthsWithClaims <- NULL
+
+# Visualize reimbursement data
+ggplot(data=claims) + 
+  geom_histogram(aes(x=reimb2010)) + 
+  labs(title="Histogram of 2010 reimbursements", x="Reimbursement [$]", y="Count")
+
+# Log transform and rename the reimbursement columns
+claims$reimb2008 <- log10(claims$reimb2008+1)
+claims$reimb2009 <- log10(claims$reimb2009+1)
+claims$reimb2010 <- log10(claims$reimb2010+1)
+
+claims <- rename(claims, log10_reimb2008 = reimb2008)
+claims <- rename(claims, log10_reimb2009 = reimb2009)
+claims <- rename(claims, log10_reimb2010 = reimb2010)
+
+# Visualize after Log Transformation
+ggplot(data=claims) + geom_histogram(aes(x=log10_reimb2010)) + 
+  labs(title="Histogram of 2010 reimbursements (log transform)",
+       x="log(1+reimbursement) [log($)]", y="Count")
+
+```
+
+
+
+```{r}
+### Baseline: The average of the reimbursements
+baseline <- mean(claimsTrain$log10_reimb2010)
+
+# Split the data into a training set and a test set
+
+set.seed(123)
+spl = sample.split(claims$log10_reimb2010, SplitRatio = 0.7)
+claimsTrain = subset(claims, spl==TRUE)
+claimsTest = subset(claims, spl==FALSE)
+
+# display
+head(claimsTrain,12)
+tail(claimsTrain,4)
+head(claimsTest,5)
+tail(claimsTest,1)
+
+
+# Now let's build a CART model on the training dataset
+
+claimsTree = rpart(log10_reimb2010 ~ ., 
+                   data=claimsTrain, 
+                   method="anova",
+                   minbucket = 25, cp=0.002)
+
+prp(claimsTree, digits = 3, varlen = 0, faclen = 0)
+
+# Use different complexity parameters to see how the
+# model performs
+
+minbucket.base = 50
+cp.all <- c(0.001,0.002,0.005)
+
+for (cp in cp.all){
+  claimsTree = rpart(log10_reimb2010 ~ ., 
+                     data=claimsTrain, 
+                     method="anova",
+                     minbucket = minbucket.base,
+                     cp=cp)
+  prp(claimsTree, digits = 3, varlen = 0, faclen = 0)
+  Sys.sleep(.1)
+}
+
+#Comparing a few trees
+treeFinal <- rpart(log10_reimb2010 ~ ., data=claimsTrain, minbucket = 50, cp=0.00001)
+prp(treeFinal, digits = 3, varlen = 0, faclen = 0)
+
+
+treeSmaller <- rpart(log10_reimb2010 ~ ., data=claimsTrain, minbucket = 50, cp=0.001)
+
+prp(treeSmaller, digits = 3, varlen = 0, faclen = 0)
+
+
+# Assess performance
+
+# Make predictions on test and train sets with treeFinal
+PredictTrain.treeFinal = predict(treeFinal, newdata = claimsTrain)
+PredictTest.treeFinal = predict(treeFinal, newdata = claimsTest)
+
+# Make predictions on test and train sets with treeSmaller
+PredictTrain.treeSmaller = predict(treeSmaller, newdata = claimsTrain)
+PredictTest.treeSmaller = predict(treeSmaller, newdata = claimsTest)
+
+# Calculate R-Squared and OSR-Squared with treeFinal
+SSTTrain = sum((claimsTrain$log10_reimb2010 - mean(claimsTrain$log10_reimb2010))^2)
+SSETrain = sum((PredictTrain.treeFinal - claimsTrain$log10_reimb2010)^2)
+R2_CART_treeFinal <- 1 - SSETrain/SSTTrain
+SSTTest = sum((claimsTest$log10_reimb2010 - mean(claimsTrain$log10_reimb2010))^2)
+SSETest = sum((PredictTest.treeFinal - claimsTest$log10_reimb2010)^2)
+OSR2_CART_treeFinal <- 1 - SSETest/SSTTest
+
+# Calculate R-Squared and OSR-Squared with treeSmaller
+SSTTrain = sum((claimsTrain$log10_reimb2010 - mean(claimsTrain$log10_reimb2010))^2)
+SSETrain = sum((PredictTrain.treeSmaller - claimsTrain$log10_reimb2010)^2)
+R2_CART_treeSmaller <- 1 - SSETrain/SSTTrain
+SSTTest = sum((claimsTest$log10_reimb2010 - mean(claimsTrain$log10_reimb2010))^2)
+SSETest = sum((PredictTest.treeSmaller - claimsTest$log10_reimb2010)^2)
+OSR2_CART_treeSmaller <- 1 - SSETest/SSTTest
+
+
+# Compare with linear regression with all variables
+lr = lm(log10_reimb2010 ~ ., 
+        data=claimsTrain)
+summary(lr)
+
+# Prediction
+PredictLr = predict(lr, newdata = claimsTest)
+
+# Linear Model R-Squared
+R2_Lr <- summary(lr)$r.squared
+
+# Linear Model OSR-Squared
+SST = sum((claimsTest$log10_reimb2010 - baseline)^2)
+SSE = sum((PredictLr - claimsTest$log10_reimb2010)^2)
+OSR2_Lr <- 1 - SSE/SST
+
+
+# Compare with "Smart Baseline"- same as last year
+baseline <- mean(claimsTrain$log10_reimb2010)
+
+SST = sum((claimsTrain$log10_reimb2010 - baseline)^2)
+SSE = sum((claimsTrain$log10_reimb2009 - claimsTrain$log10_reimb2010)^2)
+R2_smart_baseline <- 1 - SSE/SST
+
+SST = sum((claimsTest$log10_reimb2010 - baseline)^2)
+SSE = sum((claimsTest$log10_reimb2009 - claimsTest$log10_reimb2010)^2)
+OSR2_smart_baseline <- 1 - SSE/SST
+
+# Compare all the models
+results <- data.frame(`Smart Baseline` = c(R2_smart_baseline, OSR2_smart_baseline),
+                      `CART (cp=0.001)` = c(R2_CART_treeSmaller, OSR2_CART_treeSmaller),
+                      `CART (cp=0.00001)` = c(R2_CART_treeFinal, OSR2_CART_treeFinal),
+                      `Linear Regression` = c(R2_Lr, OSR2_Lr))
+
+rownames(results) <- c('R-Squared', 'OSR-Squared')
+
+results
+
+```
+
