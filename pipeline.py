@@ -125,18 +125,9 @@ def booltonum(df, column):
 #Build Classifiers
 
 def linreg(train_n, test_n, train, test, features, outcome, size = None, random_ = random.randint(0,100)):
-    #for feature in features:
-    #    assert df[feature].dtype == 'int64'
-    #assert df[outcome].dtype == 'int64'
     start_time = time.time()
-    #train, test = train_test(df, size, random_ = random_)
+
     lin_reg = LinearRegression()
-    #train_n = train.copy()
-    #test_n = test.copy()
-    #for feature in features:
-    #    train_n_int, test_n_int = normalize(df, feature, train, test)
-    #    train_n[feature] = train_n_int[feature]
-    #    test_n[feature] = test_n_int[feature]
 
     x = np.array(train_n[features]).reshape(-1, 1)
     lin_reg.fit(x, train[outcome])
@@ -150,8 +141,6 @@ def linreg(train_n, test_n, train, test, features, outcome, size = None, random_
     return lin_reg, best_line
 
 def grid_search(train_n, test_n, models, grid, outcome):
-    # --- Grid Search Pseudocode --- # 
-    # Move this into a function in your pipeline.py file! 
     results = {}
     # Begin timer 
     start = datetime.datetime.now()
